@@ -31,6 +31,7 @@
 @property (nonatomic, strong) UIColor *tintColor;
 @property (nonatomic, strong) UIColor *strokeColor;
 @property (nonatomic, strong) UIColor *shadowColor;
+@property (nonatomic, strong) UIImageView* arrowView;
 @property (nonatomic, assign) UIActivityIndicatorViewStyle activityIndicatorViewStyle;
 @property (nonatomic, strong) UIColor *activityIndicatorViewColor; // iOS5 or more
 

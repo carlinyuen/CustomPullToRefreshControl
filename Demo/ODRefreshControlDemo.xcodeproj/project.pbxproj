@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5FDA1EE3176F76F7004FC73B /* BC_Logo_.png in Resources */ = {isa = PBXBuildFile; fileRef = 5FDA1EE2176F76F7004FC73B /* BC_Logo_.png */; };
 		E5013A2115A43A940035F4A0 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E5013A2015A43A940035F4A0 /* UIKit.framework */; };
 		E5013A2315A43A940035F4A0 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E5013A2215A43A940035F4A0 /* Foundation.framework */; };
 		E5013A2515A43A940035F4A0 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E5013A2415A43A940035F4A0 /* CoreGraphics.framework */; };
@@ -19,6 +20,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		5FDA1EE2176F76F7004FC73B /* BC_Logo_.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = BC_Logo_.png; sourceTree = "<group>"; };
 		E5013A1C15A43A940035F4A0 /* ODRefreshControlDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ODRefreshControlDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E5013A2015A43A940035F4A0 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		E5013A2215A43A940035F4A0 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
@@ -94,6 +96,7 @@
 		E5013A2715A43A940035F4A0 /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
+				5FDA1EE2176F76F7004FC73B /* BC_Logo_.png */,
 				E5013A4715A43BA60035F4A0 /* ODRefreshControl */,
 				E5013A2815A43A940035F4A0 /* ODRefreshControlDemo-Info.plist */,
 				E5013A2915A43A940035F4A0 /* InfoPlist.strings */,
@@ -164,6 +167,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E5013A2B15A43A940035F4A0 /* InfoPlist.strings in Resources */,
+				5FDA1EE3176F76F7004FC73B /* BC_Logo_.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

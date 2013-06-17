@@ -9,5 +9,5 @@
 #import <UIKit/UIKit.h>
 
 @interface ViewController : UITableViewController
-
+@property (nonatomic, strong) UIImageView* imageView;
 @end

@@ -14,19 +14,32 @@
 
 #define kTotalViewHeight    400
 #define kOpenedViewHeight   44
-#define kMinTopPadding      9
-#define kMaxTopPadding      5
+#define kMinTopPadding      8
+#define kMaxTopPadding      6
 #define kMinTopRadius       12.5
 #define kMaxTopRadius       16
 #define kMinBottomRadius    3
 #define kMaxBottomRadius    16
-#define kMinBottomPadding   4
+#define kMinBottomPadding   8
 #define kMaxBottomPadding   6
 #define kMinArrowSize       2
 #define kMaxArrowSize       3
 #define kMinArrowRadius     5
 #define kMaxArrowRadius     7
-#define kMaxDistance        53
+#define kMaxDistance        64
+#define kArrowViewSize     3.7
+
+
+	/** Print text */
+	#define debugText NSLog
+
+	/** Prints object with object class name */
+	#define debugObject(x) NSLog(@"\n\n%s => %@", object_getClassName(x), (x));
+
+	/** Print CGRect */
+	#define debugRect(r) NSLog(@"{\n\tx:%f,\n\ty:%f,\n\tw:%f,\n\th:%f\n}", r.origin.x, r.origin.y, r.size.width, r.size.height);
+
+
 
 @interface ODRefreshControl ()
 
@@ -176,6 +189,27 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
         return [(UIActivityIndicatorView *)_activity color];
     }
     return nil;
+}
+
+- (void)setArrowView:(UIImageView *)arrowView
+{
+	if (arrowView)
+	{
+		_arrowView = arrowView;
+		_arrowView.alpha = 0;
+		_arrowView.frame = CGRectMake(
+			floor(self.bounds.size.width / 2) - kMaxTopRadius,
+			self.bounds.size.height - kMaxTopRadius * 2,
+			kMaxTopRadius * 2,
+			kMaxTopRadius * 2
+		);
+		NSLog(@"%f, %f,", self.bounds.size.width, self.bounds.size.height);
+		[self addSubview:_arrowView];
+	}
+	else {
+		[_arrowView removeFromSuperview];
+		_arrowView = nil;
+	}
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
@@ -328,32 +362,59 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
         _shapeLayer.shadowPath = path;
         
         // Add the arrow shape
-        
         CGFloat currentArrowSize = lerp(kMinArrowSize, kMaxArrowSize, percentage);
         CGFloat currentArrowRadius = lerp(kMinArrowRadius, kMaxArrowRadius, percentage);
         CGFloat arrowBigRadius = currentArrowRadius + (currentArrowSize / 2);
         CGFloat arrowSmallRadius = currentArrowRadius - (currentArrowSize / 2);
-        CGMutablePathRef arrowPath = CGPathCreateMutable();
-        CGPathAddArc(arrowPath, NULL, topOrigin.x, topOrigin.y, arrowBigRadius, 0, 3 * M_PI_2, NO);
-        CGPathAddLineToPoint(arrowPath, NULL, topOrigin.x, topOrigin.y - arrowBigRadius - currentArrowSize);
-        CGPathAddLineToPoint(arrowPath, NULL, topOrigin.x + (2 * currentArrowSize), topOrigin.y - arrowBigRadius + (currentArrowSize / 2));
-        CGPathAddLineToPoint(arrowPath, NULL, topOrigin.x, topOrigin.y - arrowBigRadius + (2 * currentArrowSize));
-        CGPathAddLineToPoint(arrowPath, NULL, topOrigin.x, topOrigin.y - arrowBigRadius + currentArrowSize);
-        CGPathAddArc(arrowPath, NULL, topOrigin.x, topOrigin.y, arrowSmallRadius, 3 * M_PI_2, 0, YES);
-        CGPathCloseSubpath(arrowPath);
-        _arrowLayer.path = arrowPath;
-        [_arrowLayer setFillRule:kCAFillRuleEvenOdd];
-        CGPathRelease(arrowPath);
-        
-        // Add the highlight shape
-        
-        CGMutablePathRef highlightPath = CGPathCreateMutable();
-        CGPathAddArc(highlightPath, NULL, topOrigin.x, topOrigin.y, currentTopRadius, 0, M_PI, YES);
-        CGPathAddArc(highlightPath, NULL, topOrigin.x, topOrigin.y + 1.25, currentTopRadius, M_PI, 0, NO);
-        
-        _highlightLayer.path = highlightPath;
-        [_highlightLayer setFillRule:kCAFillRuleNonZero];
-        CGPathRelease(highlightPath);
+		
+		// Draw arrow or custom image
+		if (self.arrowView)
+		{
+			// Show arrowView if exists
+			self.arrowView.alpha = 1;
+			
+			NSLog(@"%f, %f, %f", topOrigin.x, topOrigin.y, 0.0);
+			debugRect(self.arrowView.frame);
+			self.arrowView.bounds = CGRectMake(
+				topOrigin.x - arrowBigRadius * kArrowViewSize / 2,
+				topOrigin.y - arrowBigRadius * kArrowViewSize / 2,
+				arrowBigRadius * kArrowViewSize,
+				arrowBigRadius * kArrowViewSize);
+			self.arrowView.center = CGPointMake(
+				self.arrowView.bounds.origin.x + self.arrowView.bounds.size.width / 2,
+				self.arrowView.bounds.origin.y + self.arrowView.bounds.size.height / 2
+			);
+				
+			// Rotate view
+			CGFloat angle = lerp(0, 2 * M_PI, percentage);
+			CGFloat scale = lerp(0.85, 1, percentage);
+			self.arrowView.layer.transform
+				= CATransform3DScale( CATransform3DMakeRotation(angle, 0.0, 0.0, 1.0), scale, scale, 0);
+		}
+		else	// Draw arrow
+		{
+			CGMutablePathRef arrowPath = CGPathCreateMutable();
+			CGPathAddArc(arrowPath, NULL, topOrigin.x, topOrigin.y, arrowBigRadius, 0, 3 * M_PI_2, NO);
+			CGPathAddLineToPoint(arrowPath, NULL, topOrigin.x, topOrigin.y - arrowBigRadius - currentArrowSize);
+			CGPathAddLineToPoint(arrowPath, NULL, topOrigin.x + (2 * currentArrowSize), topOrigin.y - arrowBigRadius + (currentArrowSize / 2));
+			CGPathAddLineToPoint(arrowPath, NULL, topOrigin.x, topOrigin.y - arrowBigRadius + (2 * currentArrowSize));
+			CGPathAddLineToPoint(arrowPath, NULL, topOrigin.x, topOrigin.y - arrowBigRadius + currentArrowSize);
+			CGPathAddArc(arrowPath, NULL, topOrigin.x, topOrigin.y, arrowSmallRadius, 3 * M_PI_2, 0, YES);
+			CGPathCloseSubpath(arrowPath);
+			_arrowLayer.path = arrowPath;
+			[_arrowLayer setFillRule:kCAFillRuleEvenOdd];
+			CGPathRelease(arrowPath);
+			
+			// Add the highlight shape
+			
+			CGMutablePathRef highlightPath = CGPathCreateMutable();
+			CGPathAddArc(highlightPath, NULL, topOrigin.x, topOrigin.y, currentTopRadius, 0, M_PI, YES);
+			CGPathAddArc(highlightPath, NULL, topOrigin.x, topOrigin.y + 1.25, currentTopRadius, M_PI, 0, NO);
+			
+			_highlightLayer.path = highlightPath;
+			[_highlightLayer setFillRule:kCAFillRuleNonZero];
+			CGPathRelease(highlightPath);
+		}
         
     } else {
         // Start the shape disappearance animation
@@ -401,6 +462,11 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
             _activity.alpha = 1;
             _activity.layer.transform = CATransform3DMakeScale(1, 1, 1);
         } completion:nil];
+
+		// Hide arrowView if exists
+		if (self.arrowView) {
+			self.arrowView.alpha = 0;
+		}
         
         self.refreshing = YES;
         _canRefresh = NO;
@@ -450,7 +516,7 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
             [blockScrollView setContentInset:self.originalContentInset];
             _ignoreInset = NO;
             _activity.alpha = 0;
-            _activity.layer.transform = CATransform3DMakeScale(0.1, 0.1, 1);
+            _activity.layer.transform = CATransform3DScale(_activity.layer.transform, 0.1, 0.1, 1);
         } completion:^(BOOL finished) {
             [_shapeLayer removeAllAnimations];
             _shapeLayer.path = nil;
