@@ -5,6 +5,8 @@
 //  Created by Fabio Ritrovato on 6/13/12.
 //  Copyright (c) 2012 orange in a day. All rights reserved.
 //
+//  Edited by Carlin Yuen
+//
 // https://github.com/Sephiroth87/ODRefreshControl
 //
 
@@ -131,6 +133,19 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
 {
     _tintColor = tintColor;
     _shapeLayer.fillColor = [_tintColor CGColor];
+}
+
+- (void)setStrokeColor:(UIColor *)strokeColor
+{
+    _strokeColor = strokeColor;
+	_shapeLayer.strokeColor = [[strokeColor colorWithAlphaComponent:0.5] CGColor];
+	_arrowLayer.strokeColor = [[strokeColor colorWithAlphaComponent:0.5] CGColor];
+}
+
+- (void)setShadowColor:(UIColor *)shadowColor
+{
+    _shadowColor = shadowColor;
+	_shapeLayer.shadowColor = [_shadowColor CGColor];
 }
 
 - (void)setActivityIndicatorViewStyle:(UIActivityIndicatorViewStyle)activityIndicatorViewStyle

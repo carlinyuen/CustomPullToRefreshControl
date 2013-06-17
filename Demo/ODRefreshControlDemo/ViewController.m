@@ -9,6 +9,9 @@
 #import "ViewController.h"
 #import "ODRefreshControl.h"
 
+	/** Create UIColor form hex code color value */
+	#define UIColorFromHex(hex) [UIColor colorWithRed:((float)((hex & 0xFF0000) >> 16))/255.0 green:((float)((hex & 0xFF00) >> 8))/255.0 blue:((float)(hex & 0xFF))/255.0 alpha:1.0]
+
 @implementation ViewController
 
 - (void)viewDidLoad
@@ -16,6 +19,9 @@
     [super viewDidLoad];
     
     ODRefreshControl *refreshControl = [[ODRefreshControl alloc] initInScrollView:self.tableView];
+	refreshControl.tintColor = UIColorFromHex(0xFFB452);
+	refreshControl.activityIndicatorViewColor = UIColorFromHex(0xFFB452);
+	refreshControl.strokeColor = UIColorFromHex(0xFFB452);
     [refreshControl addTarget:self action:@selector(dropViewDidBeginRefreshing:) forControlEvents:UIControlEventValueChanged];
 }
 

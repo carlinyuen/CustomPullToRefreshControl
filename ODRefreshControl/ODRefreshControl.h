@@ -5,6 +5,8 @@
 //  Created by Fabio Ritrovato on 6/13/12.
 //  Copyright (c) 2012 orange in a day. All rights reserved.
 //
+//  Edited by Carlin Yuen
+//
 // https://github.com/Sephiroth87/ODRefreshControl
 //
 
@@ -27,6 +29,8 @@
 
 @property (nonatomic, readonly) BOOL refreshing;
 @property (nonatomic, strong) UIColor *tintColor;
+@property (nonatomic, strong) UIColor *strokeColor;
+@property (nonatomic, strong) UIColor *shadowColor;
 @property (nonatomic, assign) UIActivityIndicatorViewStyle activityIndicatorViewStyle;
 @property (nonatomic, strong) UIColor *activityIndicatorViewColor; // iOS5 or more
 
