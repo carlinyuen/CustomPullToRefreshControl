@@ -30,17 +30,6 @@
 #define kArrowViewSize     3.7
 
 
-	/** Print text */
-	#define debugText NSLog
-
-	/** Prints object with object class name */
-	#define debugObject(x) NSLog(@"\n\n%s => %@", object_getClassName(x), (x));
-
-	/** Print CGRect */
-	#define debugRect(r) NSLog(@"{\n\tx:%f,\n\ty:%f,\n\tw:%f,\n\th:%f\n}", r.origin.x, r.origin.y, r.size.width, r.size.height);
-
-
-
 @interface ODRefreshControl ()
 
 @property (nonatomic, readwrite) BOOL refreshing;
@@ -373,19 +362,21 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
 			// Show arrowView if exists
 			self.arrowView.alpha = 1;
 			
-			NSLog(@"%f, %f, %f", topOrigin.x, topOrigin.y, 0.0);
-			debugRect(self.arrowView.frame);
+			// Set bounds & center instead of changing frame,
+			//	because changing the frame messes up transformation
 			self.arrowView.bounds = CGRectMake(
 				topOrigin.x - arrowBigRadius * kArrowViewSize / 2,
 				topOrigin.y - arrowBigRadius * kArrowViewSize / 2,
 				arrowBigRadius * kArrowViewSize,
 				arrowBigRadius * kArrowViewSize);
 			self.arrowView.center = CGPointMake(
-				self.arrowView.bounds.origin.x + self.arrowView.bounds.size.width / 2,
-				self.arrowView.bounds.origin.y + self.arrowView.bounds.size.height / 2
+				self.arrowView.bounds.origin.x
+					+ self.arrowView.bounds.size.width / 2,
+				self.arrowView.bounds.origin.y
+					+ self.arrowView.bounds.size.height / 2
 			);
 				
-			// Rotate view
+			// Rotate & scale view
 			CGFloat angle = lerp(0, 2 * M_PI, percentage);
 			CGFloat scale = lerp(0.85, 1, percentage);
 			self.arrowView.layer.transform
