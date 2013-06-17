@@ -1,3 +1,5 @@
+Based off Fabio Ritrovato's ODRefreshControl.
+
 Added features by Carlin:
 
  * Custom stroke & shadow colors.
