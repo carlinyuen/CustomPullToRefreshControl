@@ -1,3 +1,10 @@
+Added features by Carlin:
+
+ * Custom stroke & shadow colors.
+ * Custom ImageView in place of arrow, with fun spin animation.
+
+----------------------
+
 __*Important note if your project doesn't use ARC*: you must add the @-fobjc-arc@ compiler flag to @ODRefreshControl.m@ in Target Settings > Build Phases > Compile Sources.__
 
 *If you are using ODRefreshControl in your app, drop me a line so I can add your app here!*
