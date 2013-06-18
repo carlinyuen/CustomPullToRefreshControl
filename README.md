@@ -6,7 +6,8 @@ Added features by Carlin:
  * Custom ImageView in place of arrow, with fun spin animation.
  * Added functionality to reposition if scrollview gets scrolled horizontally.
 
-----------------------
+-----------------------
+ODRefreshControl Readme
 
 __*Important note if your project doesn't use ARC*: you must add the @-fobjc-arc@ compiler flag to @ODRefreshControl.m@ in Target Settings > Build Phases > Compile Sources.__
 
@@ -14,7 +15,7 @@ __*Important note if your project doesn't use ARC*: you must add the @-fobjc-arc
 
 h1. ODRefreshControl
 
-!http://www.orangeinaday.com/img/ODRefreshControl.jpg!
+![Screenshot](http://www.orangeinaday.com/img/ODRefreshControl.jpg "ODRefresh")
 
 ODRefreshControl is a "pull down to refresh" control for UIScrollView, like the one Apple introduced in iOS6, but available to anyone from iOS4 and up.
 
