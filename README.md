@@ -6,7 +6,8 @@ Added features by Carlin:
  * Custom ImageView in place of arrow, with fun spin animation.
  * Added functionality to reposition if scrollview gets scrolled horizontally.
 
-----------------------
+-----------------------
+ODRefreshControl Readme
 
 __*Important note if your project doesn't use ARC*: you must add the @-fobjc-arc@ compiler flag to @ODRefreshControl.m@ in Target Settings > Build Phases > Compile Sources.__
 
