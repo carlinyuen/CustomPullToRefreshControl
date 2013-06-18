@@ -5,6 +5,8 @@ Added features by Carlin:
  * Custom stroke & shadow colors.
  * Custom ImageView in place of arrow, with fun spin animation.
  * Added functionality to reposition if scrollview gets scrolled horizontally.
+ 
+![Enhancements](/screenshot.png "Enhancements")
 
 -----------------------
 ODRefreshControl Readme
