@@ -10,7 +10,7 @@ Added features by Carlin:
 
 Known Issues:
 
- * It looks like if you set this on a UIScrollView and enable paging, the activity indicator doesn't stay at the top. Working on this.
+ * It looks like if you set this on a regular UIScrollView and enable paging, the activity indicator doesn't stay at the top. Working on this. Possible workaround is to set your contentSize to 44pts less than the frame of the UIScrollView. Non-ideal, but works.
 
 -----------------------
 ODRefreshControl Readme
