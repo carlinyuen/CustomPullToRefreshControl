@@ -10,7 +10,7 @@ Added features by Carlin:
 
 Known Issues:
 
- * It looks like if you set this on a regular UIScrollView and enable paging, the activity indicator doesn't stay at the top. Working on this. Possible workaround is to set your contentSize to 44pts less than the frame of the UIScrollView. Non-ideal, but works.
+ * It looks like if you set this on a regular UIScrollView and enable paging, the activity indicator doesn't stay at the top. Working on this.
  * To get your UIScrollView to scroll vertically and show the refresh control, either set the contentsize a pixel larger than the scrollview frame, or set vertical bounces to enabled.
 
 -----------------------
