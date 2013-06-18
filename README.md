@@ -8,6 +8,10 @@ Added features by Carlin:
  
 ![Enhancements](/screenshot.png "Enhancements")
 
+Known Issues:
+
+ * It looks like if you set this on a UIScrollView and enable paging, the activity indicator doesn't stay at the top. Working on this.
+
 -----------------------
 ODRefreshControl Readme
 
