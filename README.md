@@ -7,6 +7,13 @@ Added features by Carlin:
  * Custom stroke & shadow colors.
  * Custom ImageView in place of arrow, with fun spin animation.
  * Added functionality to reposition if scrollview gets scrolled horizontally.
+ 
+![Enhancements](/screenshot.png "Enhancements")
+
+Known Issues:
+
+ * It looks like if you set this on a regular UIScrollView and enable paging, the activity indicator doesn't stay at the top. Working on this.
+ * To get your UIScrollView to scroll vertically and show the refresh control, either set the contentsize a pixel larger than the scrollview frame, or set vertical bounces to enabled.
 
 -----------------------
 ODRefreshControl Readme
