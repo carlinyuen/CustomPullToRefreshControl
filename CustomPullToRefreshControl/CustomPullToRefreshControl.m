@@ -25,6 +25,12 @@
 #define kMaxDistance        64
 #define kArrowViewSize     3.7
 
+#define kContinuousAnimationDuration 0.5
+#define kFadeAnimationDuration 0.3
+#define kMomentumAnimationFriction 0.01
+#define kMomentumAnimationAccelerationScale 0.003
+#define kMomentumAnimationVelocityScale	0.1
+#define kMomentumAnimationVelocityMax 3.14
 
 @interface CustomPullToRefreshControl ()
 
@@ -32,6 +38,10 @@
 	@property (nonatomic, assign) UIScrollView* scrollView;
 	@property (nonatomic, assign) UIEdgeInsets originalContentInset;
 
+	/** For drawing synced to redraw, for momentum animation */
+	@property (nonatomic, strong) CADisplayLink* displayLink;
+
+	// For drawing
     @property (nonatomic, strong) CAShapeLayer* shapeLayer;
     @property (nonatomic, strong) CAShapeLayer* arrowLayer;
     @property (nonatomic, strong) CAShapeLayer* highlightLayer;
@@ -43,6 +53,11 @@
     @property (nonatomic, assign) BOOL didSetInset;
     @property (nonatomic, assign) BOOL hasSectionHeaders;
     @property (nonatomic, assign) CGFloat lastOffset;
+
+	// For momentum animation drawing 
+	@property (nonatomic, assign) CGFloat acceleration;
+	@property (nonatomic, assign) CGFloat velocity;
+	@property (nonatomic, assign) CGFloat momentumLastOffset;
 
 @end
 
@@ -64,7 +79,8 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
 {
     self = [super initWithFrame:CGRectMake(0, -(kTotalViewHeight + scrollView.contentInset.top), scrollView.frame.size.width, kTotalViewHeight)];
     
-    if (self) {
+    if (self)
+	{
         _scrollView = scrollView;
         _originalContentInset = scrollView.contentInset;
         
@@ -109,6 +125,18 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
         _highlightLayer = [CAShapeLayer layer];
         _highlightLayer.fillColor = [[[UIColor whiteColor] colorWithAlphaComponent:0.2] CGColor];
         [_shapeLayer addSublayer:_highlightLayer];
+		
+		// Default animation styles
+		_refreshStyle = CustomPullToRefreshNone;
+		_refreshEasing = CustomPullToRefreshLinear;
+		
+		// Drip - default to true to mimic native
+		_drawDrip = true;
+		
+		// Momentum
+		_momentumLastOffset = 0;
+		_acceleration = 0;
+		_velocity = 0;
     }
     return self;
 }
@@ -118,12 +146,11 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
     [self.scrollView removeObserver:self forKeyPath:@"contentOffset"];
     [self.scrollView removeObserver:self forKeyPath:@"contentInset"];
     self.scrollView = nil;
-}
 
-- (void)setEnabled:(BOOL)enabled
-{
-    super.enabled = enabled;
-    _shapeLayer.hidden = !self.enabled;
+	if (self.displayLink) {
+		[self.displayLink invalidate];
+		self.displayLink = nil;
+	}
 }
 
 - (void)willMoveToSuperview:(UIView *)newSuperview
@@ -134,7 +161,22 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
         [self.scrollView removeObserver:self forKeyPath:@"contentInset"];
         self.scrollView = nil;
     }
+	
+	if (self.displayLink) {
+		[self.displayLink invalidate];
+		self.displayLink = nil;
+	}
 }
+
+
+#pragma mark - Getters & Setters
+
+- (void)setEnabled:(BOOL)enabled
+{
+    super.enabled = enabled;
+    _shapeLayer.hidden = !self.enabled;
+}
+
 
 - (void)setTintColor:(UIColor *)tintColor
 {
@@ -185,26 +227,242 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
     return nil;
 }
 
-- (void)setArrowView:(UIImageView *)arrowView
+- (void)setPullView:(UIView*)pullView
 {
-	if (arrowView)
+	if (pullView)
 	{
-		_arrowView = arrowView;
-		_arrowView.alpha = 0;
-		_arrowView.frame = CGRectMake(
+		_pullView = pullView;
+		_pullView.alpha = 0;
+		_pullView.frame = CGRectMake(
 			floor(self.bounds.size.width / 2) - kMaxTopRadius,
 			self.bounds.size.height - kMaxTopRadius * 2,
 			kMaxTopRadius * 2,
 			kMaxTopRadius * 2
 		);
-		NSLog(@"%f, %f,", self.bounds.size.width, self.bounds.size.height);
-		[self addSubview:_arrowView];
+		[self addSubview:_pullView];
+	
+		// Start / stop continuous animation accordingly
+		[self stopContinuousAnimation];
+		[self stopMomentumAnimation];
+		if (self.refreshEasing == CustomPullToRefreshContinuous) {
+			[self startContinuousAnimation];
+		} else if (self.refreshEasing == CustomPullToRefreshMomentum) {
+			[self startMomentumAnimation];
+		}
 	}
 	else {
-		[_arrowView removeFromSuperview];
-		_arrowView = nil;
+		[_pullView removeFromSuperview];
+		_pullView = nil;
 	}
 }
+
+- (void)setRefreshEasing:(CustomPullToRefreshEasing)refreshEasing
+{
+	_refreshEasing = refreshEasing;
+
+	// Start / stop continuous animation accordingly
+	[self stopMomentumAnimation];
+	[self stopContinuousAnimation];
+	if (refreshEasing == CustomPullToRefreshContinuous) {
+		[self startContinuousAnimation];
+	} else if (refreshEasing == CustomPullToRefreshMomentum) {
+		[self startMomentumAnimation];
+	}
+}
+
+
+#pragma mark - Animation related
+
+/** @brief Create display link to sync with redraw and show animation */
+- (void)startMomentumAnimation
+{
+	if (self.pullView
+		&& self.refreshStyle != CustomPullToRefreshNone
+		&& self.refreshEasing == CustomPullToRefreshMomentum)
+	{
+		CADisplayLink *displayLink = [CADisplayLink
+			displayLinkWithTarget:self selector:@selector(redraw:)];
+		[displayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+	}
+}
+
+/** @brief Drawing for momentum animation */
+- (void)redraw:(id)sender
+{
+	// Physics - Stokes' Drag
+	self.velocity += (self.acceleration - kMomentumAnimationFriction * self.velocity);
+	
+	// Cap velocity
+	if (self.velocity > kMomentumAnimationVelocityMax) {
+		self.velocity = kMomentumAnimationVelocityMax;
+	}
+	
+	// Acceleration
+	if (self.acceleration > 0) {
+		self.acceleration -= kMomentumAnimationFriction;
+	}
+	if (self.acceleration < 0) {
+		self.acceleration = 0;
+	}
+	
+	// Drawing
+	CGFloat x, y, z;
+	switch (self.refreshStyle)
+	{
+		case CustomPullToRefreshRotate:
+			x = z = 0.0;
+			y = 1.0;
+			break;
+		
+		case CustomPullToRefreshSpin:
+			x = y = 0.0;
+			z = 1.0;
+			break;
+		
+		case CustomPullToRefreshNone:
+		default:
+			x = y = z = 0.0;
+			break;
+	}
+	
+	self.pullView.layer.transform
+		= CATransform3DRotate(self.pullView.layer.transform,
+			self.velocity * kMomentumAnimationVelocityScale, x, y, z);
+}
+
+/** @brief Remove display link */
+- (void)stopMomentumAnimation
+{
+	if (self.displayLink) {
+		[self.displayLink invalidate];
+		self.displayLink = nil;
+	}
+}
+
+/** @brief Start continuous animation on pullView */
+- (void)startContinuousAnimation
+{
+	if (self.pullView
+		&& self.refreshStyle != CustomPullToRefreshNone
+		&& self.refreshEasing == CustomPullToRefreshContinuous)
+	{
+		// Setup Animation
+		CABasicAnimation *animation;
+		
+		switch (self.refreshStyle)
+		{
+			case CustomPullToRefreshSpin:
+			{
+				animation = [CABasicAnimation animationWithKeyPath:@"transform.rotation"];
+				animation.toValue = @(2 * M_PI);
+				break;
+			}
+				
+			case CustomPullToRefreshRotate:
+			{
+				CATransform3D transform = self.pullView.layer.transform;
+				transform.m34 = -1/500;
+				transform = CATransform3DRotate(transform, M_PI, 0, 1, 0);
+				
+				animation = [CABasicAnimation animationWithKeyPath:@"transform"];
+				animation.autoreverses = true;
+				animation.toValue = [NSValue valueWithCATransform3D:transform];
+				break;
+			}
+				
+			case CustomPullToRefreshNone:
+			default:
+				// Do nothing and return - shouldn't get here
+				return;
+		}
+		
+		animation.duration = kContinuousAnimationDuration;
+		animation.repeatCount = HUGE_VALF;
+		[self.pullView.layer addAnimation:animation forKey:@"continuous"];
+	}
+}
+
+/** @brief Stops all continuous animation on the pullView */
+- (void)stopContinuousAnimation
+{
+	if (self.pullView) {
+		[self.pullView.layer removeAnimationForKey:@"continuous"];
+	}
+}
+
+/** @brief Begins refreshing animation for control, but user must manually 
+	set contentOffset to show control (to let them animate as they wish) */
+- (void)beginRefreshing
+{
+    if (!self.refreshing)
+	{
+        CABasicAnimation *alphaAnimation = [CABasicAnimation animationWithKeyPath:@"opacity"];
+        alphaAnimation.duration = 0.0001;
+        alphaAnimation.toValue = [NSNumber numberWithFloat:0];
+        alphaAnimation.fillMode = kCAFillModeForwards;
+        alphaAnimation.removedOnCompletion = NO;
+        [self.shapeLayer addAnimation:alphaAnimation forKey:nil];
+        [self.arrowLayer addAnimation:alphaAnimation forKey:nil];
+        [self.highlightLayer addAnimation:alphaAnimation forKey:nil];
+        
+        self.activity.alpha = 1;
+        self.activity.layer.transform = CATransform3DMakeScale(1, 1, 1);
+
+        CGPoint offset = self.scrollView.contentOffset;
+        self.ignoreInset = YES;
+        [self.scrollView setContentInset:UIEdgeInsetsMake(kOpenedViewHeight + self.originalContentInset.top, self.originalContentInset.left, self.originalContentInset.bottom, self.originalContentInset.right)];
+        self.ignoreInset = NO;
+        [self.scrollView setContentOffset:offset animated:NO];
+
+        self.refreshing = YES;
+        self.canRefresh = NO;
+		
+		// Hide pullView if exists
+		if (self.pullView) {
+			[UIView animateWithDuration:kFadeAnimationDuration animations:^{
+				self.pullView.alpha = 0;
+			}];
+		}
+    }
+}
+
+/** @brief Ends refreshing animation and hides control */
+- (void)endRefreshing
+{
+    if (self.refreshing)
+	{
+        self.refreshing = NO;
+        // Create a temporary retain-cycle, so the scrollView won't be released
+        // halfway through the end animation.
+        // This allows for the refresh control to clean up the observer,
+        // in the case the scrollView is released while the animation is running
+        __block UIScrollView *blockScrollView = self.scrollView;
+        [UIView animateWithDuration:0.4 animations:^{
+            self.ignoreInset = YES;
+            [blockScrollView setContentInset:self.originalContentInset];
+            self.ignoreInset = NO;
+            self.activity.alpha = 0;
+            self.activity.layer.transform = CATransform3DScale(self.activity.layer.transform, 0.1, 0.1, 1);
+        } completion:^(BOOL finished) {
+            [self.shapeLayer removeAllAnimations];
+            self.shapeLayer.path = nil;
+            self.shapeLayer.shadowPath = nil;
+            self.shapeLayer.position = CGPointZero;
+            [self.arrowLayer removeAllAnimations];
+            self.arrowLayer.path = nil;
+            [self.highlightLayer removeAllAnimations];
+            self.highlightLayer.path = nil;
+            // We need to use the scrollView somehow in the end block,
+            // or it'll get released in the animation block.
+            self.ignoreInset = YES;
+            [blockScrollView setContentInset:self.originalContentInset];
+            self.ignoreInset = NO;
+        }];
+    }
+}
+
+
+#pragma mark - Observer Changes
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
 {
@@ -230,9 +488,27 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
 	
 	// y Offset
     CGFloat offset = offsetPoint.y + self.originalContentInset.top;
-    
-    if (self.refreshing) {
-        if (offset != 0) {
+	
+	// Momentum stuff if easing is set
+	if (self.refreshEasing == CustomPullToRefreshMomentum)
+	{
+		// Update acceleration with diff between scroll updates
+		CGFloat offsetDiff = MAX(0, -(offset - self.momentumLastOffset));
+		self.acceleration += offsetDiff * kMomentumAnimationAccelerationScale;
+		self.momentumLastOffset = offset;
+	}
+	else {	// Reset values
+		self.acceleration = 0;
+		self.velocity = 0;
+	}
+  
+
+	#pragma mark - Refresh triggered
+	// If refresh already triggered
+    if (self.refreshing)
+	{
+        if (offset != 0)
+		{
             // Keep thing pinned at the top
             
             [CATransaction begin];
@@ -277,7 +553,11 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
             self.ignoreOffset = NO;
         }
         return;
-    } else {
+    }
+	
+	#pragma mark - Refresh not triggered yet
+	else	// Refresh not triggered yet
+	{
         // Check if we can trigger a new refresh and if we can draw the control
         BOOL dontDraw = NO;
         if (!self.canRefresh) {
@@ -312,32 +592,52 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
     self.lastOffset = offset;
     
     BOOL triggered = NO;
+
+	
+	#pragma mark - Drawing
     
-    CGMutablePathRef path = CGPathCreateMutable();
-    
-    //Calculate some useful points and values
+    // Calculate some useful points and values
     CGFloat verticalShift = MAX(0, -((kMaxTopRadius + kMaxBottomRadius + kMaxTopPadding + kMaxBottomPadding) + offset));
     CGFloat distance = MIN(kMaxDistance, fabs(verticalShift));
     CGFloat percentage = 1 - (distance / kMaxDistance);
     
-    CGFloat currentTopPadding = lerp(kMinTopPadding, kMaxTopPadding, percentage);
-    CGFloat currentTopRadius = lerp(kMinTopRadius, kMaxTopRadius, percentage);
-    CGFloat currentBottomRadius = lerp(kMinBottomRadius, kMaxBottomRadius, percentage);
-    CGFloat currentBottomPadding =  lerp(kMinBottomPadding, kMaxBottomPadding, percentage);
+    CGFloat currentTopPadding = (self.drawDrip)
+		? lerp(kMinTopPadding, kMaxTopPadding, percentage)
+		: kMaxTopPadding;
+    CGFloat currentTopRadius = (self.drawDrip)
+		? lerp(kMinTopRadius, kMaxTopRadius, percentage)
+		: kMaxTopRadius;
+    CGFloat currentBottomRadius = (self.drawDrip)
+		? lerp(kMinBottomRadius, kMaxBottomRadius, percentage)
+		: kMaxBottomRadius;
+    CGFloat currentBottomPadding = (self.drawDrip)
+		? lerp(kMinBottomPadding, kMaxBottomPadding, percentage)
+		: kMaxBottomPadding;
     
-    CGPoint bottomOrigin = CGPointMake(floor(self.bounds.size.width / 2), self.bounds.size.height - currentBottomPadding -currentBottomRadius);
+    CGPoint bottomOrigin = CGPointMake(floor(self.bounds.size.width / 2), self.bounds.size.height - currentBottomPadding - currentBottomRadius);
     CGPoint topOrigin = CGPointZero;
+	
+	// Set distance of topOrigin for drawing
     if (distance == 0) {
         topOrigin = CGPointMake(floor(self.bounds.size.width / 2), bottomOrigin.y);
-    } else {
-        topOrigin = CGPointMake(floor(self.bounds.size.width / 2), self.bounds.size.height + offset + currentTopPadding + currentTopRadius);
+    }
+	else	// Being pulled / dragged
+	{
+        topOrigin = CGPointMake(
+			floor(self.bounds.size.width / 2),
+			(self.drawDrip)
+				? self.bounds.size.height + offset
+					+ currentTopPadding + currentTopRadius
+				: bottomOrigin.y
+		);
         if (percentage == 0) {
             bottomOrigin.y -= (fabs(verticalShift) - kMaxDistance);
             triggered = YES;
         }
     }
-    
+	
     //Top semicircle
+    CGMutablePathRef path = CGPathCreateMutable();
     CGPathAddArc(path, NULL, topOrigin.x, topOrigin.y, currentTopRadius, 0, M_PI, YES);
     
     //Left curve
@@ -358,11 +658,14 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
     CGPathAddCurveToPoint(path, NULL, rightCp1.x, rightCp1.y, rightCp2.x, rightCp2.y, rightDestination.x, rightDestination.y);
     CGPathCloseSubpath(path);
     
-    if (!triggered) {
-        // Set paths
-        
-        self.shapeLayer.path = path;
-        self.shapeLayer.shadowPath = path;
+    if (!triggered)		// Refresh not triggered yet, set paths
+	{
+		// Draw drip or not?
+		if (self.drawDrip)
+		{
+			self.shapeLayer.path = path;
+			self.shapeLayer.shadowPath = path;
+		}
         
         // Add the arrow shape
         CGFloat currentArrowSize = lerp(kMinArrowSize, kMaxArrowSize, percentage);
@@ -370,31 +673,53 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
         CGFloat arrowBigRadius = currentArrowRadius + (currentArrowSize / 2);
         CGFloat arrowSmallRadius = currentArrowRadius - (currentArrowSize / 2);
 		
+		
+		#pragma mark - Custom PullView Animation
 		// Draw arrow or custom image
-		if (self.arrowView)
+		if (self.pullView)
 		{
-			// Show arrowView if exists
-			self.arrowView.alpha = 1;
+			// Show pullView if exists
+			self.pullView.alpha = 1;
 			
 			// Set bounds & center instead of changing frame,
 			//	because changing the frame messes up transformation
-			self.arrowView.bounds = CGRectMake(
+			self.pullView.bounds = CGRectMake(
 				topOrigin.x - arrowBigRadius * kArrowViewSize / 2,
 				topOrigin.y - arrowBigRadius * kArrowViewSize / 2,
 				arrowBigRadius * kArrowViewSize,
 				arrowBigRadius * kArrowViewSize);
-			self.arrowView.center = CGPointMake(
-				self.arrowView.bounds.origin.x
-					+ self.arrowView.bounds.size.width / 2,
-				self.arrowView.bounds.origin.y
-					+ self.arrowView.bounds.size.height / 2
+			self.pullView.center = CGPointMake(
+				self.pullView.bounds.origin.x
+					+ self.pullView.bounds.size.width / 2,
+				self.pullView.bounds.origin.y
+					+ self.pullView.bounds.size.height / 2
 			);
+		
+			// Animation for Linear style, other styles managed elsewhere
+			if (self.refreshEasing == CustomPullToRefreshLinear)
+			{
+				CGFloat angle = lerp(0, 2 * M_PI, percentage);
 				
-			// Rotate & scale view
-			CGFloat angle = lerp(0, 2 * M_PI, percentage);
-			CGFloat scale = lerp(0.85, 1, percentage);
-			self.arrowView.layer.transform
-				= CATransform3DScale( CATransform3DMakeRotation(angle, 0.0, 0.0, 1.0), scale, scale, 0);
+				switch (self.refreshStyle)
+				{
+					case CustomPullToRefreshSpin: {
+						self.pullView.layer.transform
+							= CATransform3DMakeRotation(angle, 0.0, 0.0, 1.0);
+						break;
+					}
+					
+					case CustomPullToRefreshRotate: {
+						self.pullView.layer.transform
+							= CATransform3DMakeRotation(angle, 0.0, 1.0, 0.0);
+						break;
+					}
+					
+					case CustomPullToRefreshNone:
+					default:
+						// Do nothing
+						break;
+				}
+			}
 		}
 		else	// Draw arrow
 		{
@@ -421,9 +746,12 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
 			CGPathRelease(highlightPath);
 		}
         
-    } else {
+    }
+	
+	#pragma mark - Triggered Refresh Animation
+	else	// Triggered refresh
+	{
         // Start the shape disappearance animation
-        
         CGFloat radius = lerp(kMinBottomRadius, kMaxBottomRadius, 0.2);
         CABasicAnimation *pathMorph = [CABasicAnimation animationWithKeyPath:@"path"];
         pathMorph.duration = 0.15;
@@ -468,9 +796,11 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
             self.activity.layer.transform = CATransform3DMakeScale(1, 1, 1);
         } completion:nil];
 
-		// Hide arrowView if exists
-		if (self.arrowView) {
-			self.arrowView.alpha = 0;
+		// Hide pullView if exists
+		if (self.pullView) {
+			[UIView animateWithDuration:kFadeAnimationDuration animations:^{
+				self.pullView.alpha = 0;
+			}];
 		}
         
         self.refreshing = YES;
@@ -479,65 +809,6 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
     }
     
     CGPathRelease(path);
-}
-
-- (void)beginRefreshing
-{
-    if (!self.refreshing) {
-        CABasicAnimation *alphaAnimation = [CABasicAnimation animationWithKeyPath:@"opacity"];
-        alphaAnimation.duration = 0.0001;
-        alphaAnimation.toValue = [NSNumber numberWithFloat:0];
-        alphaAnimation.fillMode = kCAFillModeForwards;
-        alphaAnimation.removedOnCompletion = NO;
-        [self.shapeLayer addAnimation:alphaAnimation forKey:nil];
-        [self.arrowLayer addAnimation:alphaAnimation forKey:nil];
-        [self.highlightLayer addAnimation:alphaAnimation forKey:nil];
-        
-        self.activity.alpha = 1;
-        self.activity.layer.transform = CATransform3DMakeScale(1, 1, 1);
-
-        CGPoint offset = self.scrollView.contentOffset;
-        self.ignoreInset = YES;
-        [self.scrollView setContentInset:UIEdgeInsetsMake(kOpenedViewHeight + self.originalContentInset.top, self.originalContentInset.left, self.originalContentInset.bottom, self.originalContentInset.right)];
-        self.ignoreInset = NO;
-        [self.scrollView setContentOffset:offset animated:NO];
-
-        self.refreshing = YES;
-        self.canRefresh = NO;
-    }
-}
-
-- (void)endRefreshing
-{
-    if (self.refreshing) {
-        self.refreshing = NO;
-        // Create a temporary retain-cycle, so the scrollView won't be released
-        // halfway through the end animation.
-        // This allows for the refresh control to clean up the observer,
-        // in the case the scrollView is released while the animation is running
-        __block UIScrollView *blockScrollView = self.scrollView;
-        [UIView animateWithDuration:0.4 animations:^{
-            self.ignoreInset = YES;
-            [blockScrollView setContentInset:self.originalContentInset];
-            self.ignoreInset = NO;
-            self.activity.alpha = 0;
-            self.activity.layer.transform = CATransform3DScale(self.activity.layer.transform, 0.1, 0.1, 1);
-        } completion:^(BOOL finished) {
-            [self.shapeLayer removeAllAnimations];
-            self.shapeLayer.path = nil;
-            self.shapeLayer.shadowPath = nil;
-            self.shapeLayer.position = CGPointZero;
-            [self.arrowLayer removeAllAnimations];
-            self.arrowLayer.path = nil;
-            [self.highlightLayer removeAllAnimations];
-            self.highlightLayer.path = nil;
-            // We need to use the scrollView somehow in the end block,
-            // or it'll get released in the animation block.
-            self.ignoreInset = YES;
-            [blockScrollView setContentInset:self.originalContentInset];
-            self.ignoreInset = NO;
-        }];
-    }
 }
 
 @end

@@ -2,6 +2,8 @@ Based off Fabio Ritrovato's ODRefreshControl.
 
 Added features by Carlin:
 
+ * Custom animation styles - using linear and momentum "easing", and spin
+   or rotate transforms.
  * Custom stroke & shadow colors.
  * Custom ImageView in place of arrow, with fun spin animation.
  * Added functionality to reposition if scrollview gets scrolled horizontally.
@@ -21,7 +23,7 @@ ODRefreshControl is a "pull down to refresh" control for UIScrollView, like the 
 
 h2. Installation
 
-* Drag the @ODRefreshControl/ODRefreshControl@ folder into your project. 
+* Drag the @ODRefreshControl/ODRefreshControl@ folder into your project.
 * Add the *QuartzCore* framework to your project.
 * @#import "ODRefreshControl.h"@
 
