@@ -78,3 +78,8 @@ h2. Credits
 
 ODRefreshControl is brought to you by "Fabio Ritrovato":http://orangeinaday.com and "contributors to the project":https://github.com/Sephiroth87/ODRefreshControl/contributors. If you have feature suggestions or bug reports, feel free to help out by sending pull requests or by "creating new issues":https://github.com/Sephiroth87/ODRefreshControl/issues/new. If you're using ODRefreshControl in your project, attribution would be nice.
 !https://cruel-carlota.pagodabox.com/a9d517c98620f7f8e865458f744c1cbb!
+
+
+------------------------------------
+h2. License
+MIT
