@@ -2,18 +2,20 @@ Based off Fabio Ritrovato's ODRefreshControl.
 
 Added features by Carlin:
 
- * Custom animation styles - using linear and momentum "easing", and spin
-   or rotate transforms.
  * Custom stroke & shadow colors.
- * Custom ImageView in place of arrow, with fun spin animation.
+ * Can turn on or off the drippy-slimey effect.
+ * Custom ImageView in place of arrow, which you can animate using custom styles.
+ * Custom animation styles using linear and momentum "easing", and spin or rotate transforms.
  * Added functionality to reposition if scrollview gets scrolled horizontally.
- 
+
 ![Enhancements](/screenshot.png "Enhancements")
 
 Known Issues:
 
+ * You can't use the Rotate style animation with the drippy-slimey effect on.
+ * You can only use the custon animation styles on a custon imageview.
  * It looks like if you set this on a regular UIScrollView and enable paging, the activity indicator doesn't stay at the top. Working on this.
- * To get your UIScrollView to scroll vertically and show the refresh control, either set the contentsize a pixel larger than the scrollview frame, or set vertical bounces to enabled.
+ * To get your UIScrollView to scroll vertically and show the refresh control, either set the contentsize a pixel larger than the scrollview frame, or set vertical bounces to enabled?
 
 -----------------------
 ODRefreshControl Readme
