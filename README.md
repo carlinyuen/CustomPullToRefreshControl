@@ -4,6 +4,10 @@ Added features by Carlin:
 
  * Custom stroke & shadow colors.
  * Can turn on or off the drippy-slimey effect.
+ * Can cancel refresh by scrolling back to rest position for user-defined time,
+   and will emit a UIControlEventTouchCancel action for targets to listen to.
+ * Can position the refreshing activity indicator / custom view to top of screen
+   or top of scrollView.
  * Custom ImageView in place of arrow, which you can animate using custom styles.
  * Custom animation styles using linear and momentum "easing", and spin or rotate transforms.
  * Added functionality to reposition if scrollview gets scrolled horizontally.
@@ -15,7 +19,17 @@ Known Issues:
  * You can't use the Rotate style animation with the drippy-slimey effect on.
  * You can only use the custon animation styles on a custon imageview.
  * It looks like if you set this on a regular UIScrollView and enable paging, the activity indicator doesn't stay at the top. Working on this.
- * To get your UIScrollView to scroll vertically and show the refresh control, either set the contentsize a pixel larger than the scrollview frame, or set vertical bounces to enabled?
+
+Properties:
+
+ * UIColor \*tintColor
+ * UIColor \*strokeColor
+ * UIColor \*shadowColor
+ * UIColor \*activityIndicatorViewColor
+ * BOOL drawDiskWhenPulling
+ * BOOL enableDiskDripEffect
+ * BOOL stickToTopWhenRefreshing
+ * BOOL scrollUpToCancel
 
 -----------------------
 ODRefreshControl Readme

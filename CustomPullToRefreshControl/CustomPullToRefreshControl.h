@@ -41,9 +41,19 @@ typedef enum {
 	@property (nonatomic, strong) UIColor *strokeColor;
 	@property (nonatomic, strong) UIColor *shadowColor;
 
-	/** Draw the drippy effect on pull to refresh,
-		if this is disabled, it will stick to top of scrollView */
-	@property (nonatomic, assign) BOOL drawDrip;
+	/** Draw the disk behind the arrow / pullview */
+	@property (nonatomic, assign) BOOL drawDiskWhenPulling;
+
+	/** Draw the drippy effect on pull to refresh, if disabled, 
+		pullView / arrow will be right above top of ScrollView */
+	@property (nonatomic, assign) BOOL enableDiskDripEffect;
+
+	/** Stick activityview to top of screen when refreshing */
+	@property (nonatomic, assign) BOOL stickToTopWhenRefreshing;
+
+	/** Enable scroll up to cancel, will emit a UIControlEventTouchCancel
+		on cancel, which a viewcontroller should addTarget for */
+	@property (nonatomic, assign) BOOL scrollUpToCancel;
 
 	/** Customizing native activity indicator */
 	@property (nonatomic, assign) UIActivityIndicatorViewStyle activityIndicatorViewStyle;

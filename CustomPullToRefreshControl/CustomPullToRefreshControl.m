@@ -9,7 +9,7 @@
 #import "CustomPullToRefreshControl.h"
 
 #define kTotalViewHeight    400
-#define kOpenedViewHeight   44
+#define kOpenedViewHeight   54
 #define kMinTopPadding      8
 #define kMaxTopPadding      6
 #define kMinTopRadius       12.5
@@ -27,26 +27,35 @@
 
 #define kContinuousAnimationDuration 0.5
 #define kFadeAnimationDuration 0.3
-#define kMomentumAnimationFriction 0.01
+#define kMomentumAnimationFriction 0.005
 #define kMomentumAnimationAccelerationScale 0.003
 #define kMomentumAnimationVelocityScale	0.1
 #define kMomentumAnimationVelocityMax 3.14
 
+#define kCancelRefreshDelay 1
+
 @interface CustomPullToRefreshControl ()
 
+	/** public refresh status */
 	@property (nonatomic, readwrite) BOOL refreshing;
+
+	/** ScrollView to add pull to refresh to */
 	@property (nonatomic, assign) UIScrollView* scrollView;
 	@property (nonatomic, assign) UIEdgeInsets originalContentInset;
 
 	/** For drawing synced to redraw, for momentum animation */
 	@property (nonatomic, strong) CADisplayLink* displayLink;
 
+	/** Set delay for scroll up to cancel */
+	@property (nonatomic, strong) NSTimer* cancelTimer;
+
 	// For drawing
     @property (nonatomic, strong) CAShapeLayer* shapeLayer;
     @property (nonatomic, strong) CAShapeLayer* arrowLayer;
     @property (nonatomic, strong) CAShapeLayer* highlightLayer;
-    @property (nonatomic, strong) UIView* activity;
+    @property (nonatomic, strong) UIView* activityIndicator;
 
+	// For calculations
     @property (nonatomic, assign) BOOL canRefresh;
     @property (nonatomic, assign) BOOL ignoreInset;
     @property (nonatomic, assign) BOOL ignoreOffset;
@@ -89,14 +98,14 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
         [scrollView addObserver:self forKeyPath:@"contentOffset" options:NSKeyValueObservingOptionNew context:nil];
         [scrollView addObserver:self forKeyPath:@"contentInset" options:NSKeyValueObservingOptionNew context:nil];
         
-        _activity = activity ? activity : [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray];
-        _activity.center = CGPointMake(floor(self.frame.size.width / 2), floor(self.frame.size.height / 2));
-        _activity.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
-        _activity.alpha = 0;
-        if ([_activity respondsToSelector:@selector(startAnimating)]) {
-            [(UIActivityIndicatorView *)_activity startAnimating];
+        _activityIndicator = activity ? activity : [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray];
+        _activityIndicator.center = CGPointMake(floor(self.frame.size.width / 2), floor(self.frame.size.height / 2));
+        _activityIndicator.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
+        _activityIndicator.alpha = 0;
+        if ([_activityIndicator respondsToSelector:@selector(startAnimating)]) {
+            [(UIActivityIndicatorView *)_activityIndicator startAnimating];
         }
-        [self addSubview:_activity];
+        [self addSubview:_activityIndicator];
         
         _refreshing = NO;
         _canRefresh = YES;
@@ -130,8 +139,15 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
 		_refreshStyle = CustomPullToRefreshNone;
 		_refreshEasing = CustomPullToRefreshLinear;
 		
-		// Drip - default to true to mimic native
-		_drawDrip = true;
+		// Disk & drip - default to true to mimic native
+		_drawDiskWhenPulling = true;
+		_enableDiskDripEffect = true;
+		
+		// Stick to top - default to true to mimic native
+		_stickToTopWhenRefreshing = true;
+		
+		// Scroll up to cancel - default to false to mimic native
+		_scrollUpToCancel = false;
 		
 		// Momentum
 		_momentumLastOffset = 0;
@@ -199,30 +215,30 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
 
 - (void)setActivityIndicatorViewStyle:(UIActivityIndicatorViewStyle)activityIndicatorViewStyle
 {
-    if ([_activity isKindOfClass:[UIActivityIndicatorView class]]) {
-        [(UIActivityIndicatorView *)_activity setActivityIndicatorViewStyle:activityIndicatorViewStyle];
+    if ([_activityIndicator isKindOfClass:[UIActivityIndicatorView class]]) {
+        [(UIActivityIndicatorView *)_activityIndicator setActivityIndicatorViewStyle:activityIndicatorViewStyle];
     }
 }
 
 - (UIActivityIndicatorViewStyle)activityIndicatorViewStyle
 {
-    if ([_activity isKindOfClass:[UIActivityIndicatorView class]]) {
-        return [(UIActivityIndicatorView *)_activity activityIndicatorViewStyle];
+    if ([_activityIndicator isKindOfClass:[UIActivityIndicatorView class]]) {
+        return [(UIActivityIndicatorView *)_activityIndicator activityIndicatorViewStyle];
     }
     return 0;
 }
 
 - (void)setActivityIndicatorViewColor:(UIColor *)activityIndicatorViewColor
 {
-    if ([_activity isKindOfClass:[UIActivityIndicatorView class]] && [_activity respondsToSelector:@selector(setColor:)]) {
-        [(UIActivityIndicatorView *)_activity setColor:activityIndicatorViewColor];
+    if ([_activityIndicator isKindOfClass:[UIActivityIndicatorView class]] && [_activityIndicator respondsToSelector:@selector(setColor:)]) {
+        [(UIActivityIndicatorView *)_activityIndicator setColor:activityIndicatorViewColor];
     }
 }
 
 - (UIColor *)activityIndicatorViewColor
 {
-    if ([_activity isKindOfClass:[UIActivityIndicatorView class]] && [_activity respondsToSelector:@selector(color)]) {
-        return [(UIActivityIndicatorView *)_activity color];
+    if ([_activityIndicator isKindOfClass:[UIActivityIndicatorView class]] && [_activityIndicator respondsToSelector:@selector(color)]) {
+        return [(UIActivityIndicatorView *)_activityIndicator color];
     }
     return nil;
 }
@@ -405,8 +421,8 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
         [self.arrowLayer addAnimation:alphaAnimation forKey:nil];
         [self.highlightLayer addAnimation:alphaAnimation forKey:nil];
         
-        self.activity.alpha = 1;
-        self.activity.layer.transform = CATransform3DMakeScale(1, 1, 1);
+        self.activityIndicator.alpha = 1;
+        self.activityIndicator.layer.transform = CATransform3DMakeScale(1, 1, 1);
 
         CGPoint offset = self.scrollView.contentOffset;
         self.ignoreInset = YES;
@@ -426,6 +442,13 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
     }
 }
 
+/** @brief Cancels refreshing and emits action for listeners */
+- (void)cancelRefreshing:(id)sender
+{
+	[self sendActionsForControlEvents:UIControlEventTouchCancel];
+	[self endRefreshing];
+}
+
 /** @brief Ends refreshing animation and hides control */
 - (void)endRefreshing
 {
@@ -441,8 +464,8 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
             self.ignoreInset = YES;
             [blockScrollView setContentInset:self.originalContentInset];
             self.ignoreInset = NO;
-            self.activity.alpha = 0;
-            self.activity.layer.transform = CATransform3DScale(self.activity.layer.transform, 0.1, 0.1, 1);
+            self.activityIndicator.alpha = 0;
+            self.activityIndicator.layer.transform = CATransform3DScale(self.activityIndicator.layer.transform, 0.1, 0.1, 1);
         } completion:^(BOOL finished) {
             [self.shapeLayer removeAllAnimations];
             self.shapeLayer.path = nil;
@@ -507,21 +530,45 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
 	// If refresh already triggered
     if (self.refreshing)
 	{
+		// If not at resting position (when PTR isn't active)
         if (offset != 0)
 		{
-            // Keep thing pinned at the top
-            
-            [CATransaction begin];
-            [CATransaction setValue:(id)kCFBooleanTrue forKey:kCATransactionDisableActions];
-            self.shapeLayer.position = CGPointMake(0, kMaxDistance + offset + kOpenedViewHeight);
-            [CATransaction commit];
-
-            self.activity.center = CGPointMake(floor(self.frame.size.width / 2), MIN(offset + self.frame.size.height + floor(kOpenedViewHeight / 2), self.frame.size.height - kOpenedViewHeight/ 2));
+			// Invalidate cancel timer if exists
+			if (self.cancelTimer) {
+				[self.cancelTimer invalidate];
+			}
+			
+			// Keep thing pinned at the top
+			[CATransaction begin];
+			[CATransaction setValue:(id)kCFBooleanTrue forKey:kCATransactionDisableActions];
+			self.shapeLayer.position = CGPointMake(0, kMaxDistance + offset + kOpenedViewHeight);
+			[CATransaction commit];
+		
+			if (self.stickToTopWhenRefreshing)
+			{
+				self.activityIndicator.center = CGPointMake(
+					floor(self.frame.size.width / 2),
+					MIN(offset + self.frame.size.height + floor(kOpenedViewHeight / 2),
+						self.frame.size.height - kOpenedViewHeight/ 2));
+			}
+			else	// Stay with original position above scrollView
+			{
+				CGFloat currentBottomRadius = kMaxBottomRadius;
+				CGFloat currentBottomPadding = kMaxBottomPadding;
+				CGPoint bottomOrigin = CGPointMake(floor(self.bounds.size.width / 2), self.bounds.size.height - currentBottomPadding - currentBottomRadius);
+				CGPoint topOrigin = CGPointMake(floor(self.bounds.size.width / 2), bottomOrigin.y);
+				
+				self.activityIndicator.center = CGPointMake(
+					(topOrigin.x - bottomOrigin.x) / 2 + bottomOrigin.x,
+					(topOrigin.y - bottomOrigin.y) / 2 + bottomOrigin.y
+				);
+			}
 
             self.ignoreInset = YES;
             self.ignoreOffset = YES;
             
-            if (offset < 0) {
+            if (offset < 0)
+			{
                 // Set the inset depending on the situation
                 if (offset >= -kOpenedViewHeight) {
                     if (!self.scrollView.dragging) {
@@ -546,12 +593,23 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
                         [self.scrollView setContentInset:UIEdgeInsetsMake(-offset + self.originalContentInset.top, self.originalContentInset.left, self.originalContentInset.bottom, self.originalContentInset.right)];
                     }
                 }
-            } else if (self.hasSectionHeaders) {
+            }
+			else if (self.hasSectionHeaders) {
                 [self.scrollView setContentInset:self.originalContentInset];
             }
             self.ignoreInset = NO;
             self.ignoreOffset = NO;
         }
+		else if (self.scrollUpToCancel)	// If at resting position & can cancel
+		{
+			// Clear and restart
+			if (self.cancelTimer) {
+				[self.cancelTimer invalidate];
+			}
+			
+			// Create timer to see if user leaves in resting position
+			self.cancelTimer = [NSTimer scheduledTimerWithTimeInterval:kCancelRefreshDelay target:self selector:@selector(cancelRefreshing:) userInfo:nil repeats:false];
+		}
         return;
     }
 	
@@ -601,16 +659,17 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
     CGFloat distance = MIN(kMaxDistance, fabs(verticalShift));
     CGFloat percentage = 1 - (distance / kMaxDistance);
     
-    CGFloat currentTopPadding = (self.drawDrip)
+	// Draw drip or not?
+    CGFloat currentTopPadding = (self.enableDiskDripEffect)
 		? lerp(kMinTopPadding, kMaxTopPadding, percentage)
 		: kMaxTopPadding;
-    CGFloat currentTopRadius = (self.drawDrip)
+    CGFloat currentTopRadius = (self.enableDiskDripEffect)
 		? lerp(kMinTopRadius, kMaxTopRadius, percentage)
 		: kMaxTopRadius;
-    CGFloat currentBottomRadius = (self.drawDrip)
+    CGFloat currentBottomRadius = (self.enableDiskDripEffect)
 		? lerp(kMinBottomRadius, kMaxBottomRadius, percentage)
 		: kMaxBottomRadius;
-    CGFloat currentBottomPadding = (self.drawDrip)
+    CGFloat currentBottomPadding = (self.enableDiskDripEffect)
 		? lerp(kMinBottomPadding, kMaxBottomPadding, percentage)
 		: kMaxBottomPadding;
     
@@ -625,7 +684,7 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
 	{
         topOrigin = CGPointMake(
 			floor(self.bounds.size.width / 2),
-			(self.drawDrip)
+			(self.enableDiskDripEffect)
 				? self.bounds.size.height + offset
 					+ currentTopPadding + currentTopRadius
 				: bottomOrigin.y
@@ -636,7 +695,7 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
         }
     }
 	
-    //Top semicircle
+    // Top semicircle
     CGMutablePathRef path = CGPathCreateMutable();
     CGPathAddArc(path, NULL, topOrigin.x, topOrigin.y, currentTopRadius, 0, M_PI, YES);
     
@@ -647,8 +706,8 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
     
     CGPathAddCurveToPoint(path, NULL, leftCp1.x, leftCp1.y, leftCp2.x, leftCp2.y, leftDestination.x, leftDestination.y);
     
-    //Bottom semicircle
-    CGPathAddArc(path, NULL, bottomOrigin.x, bottomOrigin.y, currentBottomRadius, M_PI, 0, YES);
+	// Bottom semicircle
+	CGPathAddArc(path, NULL, bottomOrigin.x, bottomOrigin.y, currentBottomRadius, M_PI, 0, YES);
     
     //Right curve
     CGPoint rightCp2 = CGPointMake(lerp((topOrigin.x + currentTopRadius), (bottomOrigin.x + currentBottomRadius), 0.1), lerp(topOrigin.y, bottomOrigin.y, 0.2));
@@ -660,8 +719,8 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
     
     if (!triggered)		// Refresh not triggered yet, set paths
 	{
-		// Draw drip or not?
-		if (self.drawDrip)
+		// Draw disk or not?
+		if (self.drawDiskWhenPulling)
 		{
 			self.shapeLayer.path = path;
 			self.shapeLayer.shadowPath = path;
@@ -789,11 +848,11 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
         
         [CATransaction begin];
         [CATransaction setValue:(id)kCFBooleanTrue forKey:kCATransactionDisableActions];
-        self.activity.layer.transform = CATransform3DMakeScale(0.1, 0.1, 1);
+        self.activityIndicator.layer.transform = CATransform3DMakeScale(0.1, 0.1, 1);
         [CATransaction commit];
         [UIView animateWithDuration:0.2 delay:0.15 options:UIViewAnimationOptionCurveLinear animations:^{
-            self.activity.alpha = 1;
-            self.activity.layer.transform = CATransform3DMakeScale(1, 1, 1);
+            self.activityIndicator.alpha = 1;
+            self.activityIndicator.layer.transform = CATransform3DMakeScale(1, 1, 1);
         } completion:nil];
 
 		// Hide pullView if exists
