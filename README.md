@@ -64,8 +64,7 @@ typedef enum {
 
 
 -----------------------
-### Original ODRefreshControl Readme
-##### Slightly modified for this library
+### Original ODRefreshControl Readme (modified for this library)
 
 __*Important note if your project doesn't use ARC*: you must add the "-fobjc-arc" compiler flag to "CustomPullToRefresh.m" in Target Settings > Build Phases > Compile Sources.__
 
