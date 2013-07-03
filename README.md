@@ -2,7 +2,18 @@
 
 Based off Fabio Ritrovato's ODRefreshControl.
 
-Added features by Carlin:
+### Properties:
+
+ * UIColor \*tintColor
+ * UIColor \*strokeColor
+ * UIColor \*shadowColor
+ * UIColor \*activityIndicatorViewColor
+ * BOOL drawDiskWhenPulling
+ * BOOL enableDiskDripEffect
+ * BOOL stickToTopWhenRefreshing
+ * BOOL scrollUpToCancel
+
+### Added features by Carlin:
 
  * Custom stroke & shadow colors.
  * Can turn on or off the drippy-slimey effect.
@@ -21,17 +32,6 @@ Added features by Carlin:
  * You can't use the Rotate style animation with the drippy-slimey effect on.
  * You can only use the custon animation styles on a custon imageview.
  * It looks like if you set this on a regular UIScrollView and enable paging, the activity indicator doesn't stay at the top. Working on this.
-
-Properties:
-
- * UIColor \*tintColor
- * UIColor \*strokeColor
- * UIColor \*shadowColor
- * UIColor \*activityIndicatorViewColor
- * BOOL drawDiskWhenPulling
- * BOOL enableDiskDripEffect
- * BOOL stickToTopWhenRefreshing
- * BOOL scrollUpToCancel
 
 
 -----------------------
