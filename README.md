@@ -4,16 +4,44 @@ Based off Fabio Ritrovato's ODRefreshControl.
 
 ### Properties:
 
- * UIColor \*tintColor
- * UIColor \*strokeColor
- * UIColor \*shadowColor
- * UIColor \*activityIndicatorViewColor
- * BOOL drawDiskWhenPulling
- * BOOL enableDiskDripEffect
- * BOOL stickToTopWhenRefreshing
- * BOOL scrollUpToCancel
+<pre>
+@property (nonatomic, assign) UIActivityIndicatorViewStyle activityIndicatorViewStyle;
+@property (nonatomic, strong) UIColor *activityIndicatorViewColor; // iOS5 or more
+@property (nonatomic, strong) UIColor *tintColor;
+@property (nonatomic, strong) UIColor *strokeColor
+@property (nonatomic, strong) UIColor *shadowColor
 
-### Added features by Carlin:
+@property (nonatomic, assign) BOOL drawDiskWhenPulling
+@property (nonatomic, assign) BOOL enableDiskDripEffect
+@property (nonatomic, assign) BOOL stickToTopWhenRefreshing
+@property (nonatomic, assign) BOOL scrollUpToCancel
+
+/** Refresh animation on custom pullView */
+@property (nonatomic, assign) CustomPullToRefreshStyle refreshStyle;
+@property (nonatomic, assign) CustomPullToRefreshEasing refreshEasing;
+</pre>
+
+
+#### Enums
+
+<pre>
+// Enum for refresh style animation on pullView
+typedef enum {
+	CustomPullToRefreshNone,
+	CustomPullToRefreshSpin,
+	CustomPullToRefreshRotate,
+} CustomPullToRefreshStyle;
+
+// Enum for animation easing on pullView
+typedef enum {
+	CustomPullToRefreshLinear,
+	CustomPullToRefreshMomentum,
+	CustomPullToRefreshContinuous
+} CustomPullToRefreshEasing;
+</pre>
+
+
+### Added features:
 
  * Custom stroke & shadow colors.
  * Can turn on or off the drippy-slimey effect.
@@ -27,6 +55,7 @@ Based off Fabio Ritrovato's ODRefreshControl.
 
 ![Enhancements](/screenshot.png "Enhancements")
 
+
 #### Known Issues:
 
  * You can't use the Rotate style animation with the drippy-slimey effect on.
@@ -35,32 +64,29 @@ Based off Fabio Ritrovato's ODRefreshControl.
 
 
 -----------------------
-### ODRefreshControl Readme
+### Original ODRefreshControl Readme
+##### Slightly modified for this library
 
-__*Important note if your project doesn't use ARC*: you must add the @-fobjc-arc@ compiler flag to @ODRefreshControl.m@ in Target Settings > Build Phases > Compile Sources.__
+__*Important note if your project doesn't use ARC*: you must add the "-fobjc-arc" compiler flag to "CustomPullToRefresh.m" in Target Settings > Build Phases > Compile Sources.__
 
-*If you are using ODRefreshControl in your app, drop me a line so I can add your app here!*
+*If you are using CustomPullToRefresh in your app, drop me a line so I can add your app here!*
 
-## ODRefreshControl
+## CustomPullToRefresh
 
 ![Screenshot](http://www.orangeinaday.com/img/ODRefreshControl.jpg "ODRefresh")
 
-ODRefreshControl is a "pull down to refresh" control for UIScrollView, like the one Apple introduced in iOS6, but available to anyone from iOS4 and up.
+CustomPullToRefresh is a "pull down to refresh" control for UIScrollView, like the one Apple introduced in iOS6, but available to anyone from iOS4 and up.
 
 ### Installation
 
-* Drag the @ODRefreshControl/ODRefreshControl@ folder into your project.
+* Drag the CustomPullToRefresh folder into your project.
 * Add the *QuartzCore* framework to your project.
-* @#import "ODRefreshControl.h"@
-
-### Usage
-
-(see sample Xcode project in @/Demo@)
+* #import "CustomPullToRefresh.h"
 
 #### Adding a refresh control to your table view
 
 <pre>
-ODRefreshControl *refreshControl = [[ODRefreshControl alloc] initInScrollView:self.scrollView];
+CustomPullToRefresh *refreshControl = [[CustomPullToRefresh alloc] initInScrollView:self.scrollView];
 </pre>
 
 To know when the refresh operation has started, add an action method to the UIControlEventValueChanged event of the control
@@ -83,7 +109,7 @@ Remember to tell the control when the refresh operation has ended
 
 #### Customization
 
-The @ODRefreshControl@ can be customized using the following properties:
+The CustomPullToRefresh can be customized using the following properties:
 
 <pre>
 @property (nonatomic, strong) UIColor *tintColor;
