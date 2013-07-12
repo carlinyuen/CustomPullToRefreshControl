@@ -59,7 +59,7 @@ typedef enum {
 #### Known Issues:
 
  * You can't use the Rotate style animation with the drippy-slimey effect on.
- * You can only use the custon animation styles on a custon imageview.
+ * You can only use the custom animation styles on a custom imageview.
  * It looks like if you set this on a regular UIScrollView and enable paging, the activity indicator doesn't stay at the top. Working on this.
 
 
