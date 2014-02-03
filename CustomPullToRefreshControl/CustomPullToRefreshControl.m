@@ -99,7 +99,10 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
         [scrollView addObserver:self forKeyPath:@"contentInset" options:NSKeyValueObservingOptionNew context:nil];
         
         _activityIndicator = activity ? activity : [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray];
-        _activityIndicator.center = CGPointMake(floor(self.frame.size.width / 2), floor(self.frame.size.height / 2));
+        _activityIndicator.center = CGPointMake(
+            floor(self.frame.size.width / 2),
+            floor(self.frame.size.height / 2) + _originalContentInset.top
+        );
         _activityIndicator.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
         _activityIndicator.alpha = 0;
         if ([_activityIndicator respondsToSelector:@selector(startAnimating)]) {
@@ -548,14 +551,17 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
 			{
 				self.activityIndicator.center = CGPointMake(
 					floor(self.frame.size.width / 2),
-					MIN(offset + self.frame.size.height + floor(kOpenedViewHeight / 2),
-						self.frame.size.height - kOpenedViewHeight/ 2));
+					MIN(offset + self.frame.size.height
+                        + floor(kOpenedViewHeight / 2),
+						self.frame.size.height - kOpenedViewHeight/ 2
+                    ) + self.originalContentInset.top
+                );
 			}
 			else	// Stay with original position above scrollView
 			{
 				CGFloat currentBottomRadius = kMaxBottomRadius;
 				CGFloat currentBottomPadding = kMaxBottomPadding;
-				CGPoint bottomOrigin = CGPointMake(floor(self.bounds.size.width / 2), self.bounds.size.height - currentBottomPadding - currentBottomRadius);
+				CGPoint bottomOrigin = CGPointMake(floor(self.bounds.size.width / 2), self.bounds.size.height - currentBottomPadding - currentBottomRadius + self.originalContentInset.top);
 				CGPoint topOrigin = CGPointMake(floor(self.bounds.size.width / 2), bottomOrigin.y);
 				
 				self.activityIndicator.center = CGPointMake(
@@ -566,11 +572,14 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
 
             self.ignoreInset = YES;
             self.ignoreOffset = YES;
-            
+
+            // Scrollview is pulled down
             if (offset < 0)
 			{
-                // Set the inset depending on the situation
-                if (offset >= -kOpenedViewHeight) {
+                // Within full open height of pull-to-refresh
+                if (offset >= -kOpenedViewHeight)
+                {
+                    // Set the inset depending on the situation
                     if (!self.scrollView.dragging) {
                         if (!self.didSetInset) {
                             self.didSetInset = YES;
@@ -672,10 +681,14 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
     CGFloat currentBottomPadding = (self.enableDiskDripEffect)
 		? lerp(kMinBottomPadding, kMaxBottomPadding, percentage)
 		: kMaxBottomPadding;
-    
-    CGPoint bottomOrigin = CGPointMake(floor(self.bounds.size.width / 2), self.bounds.size.height - currentBottomPadding - currentBottomRadius);
+
+    CGFloat yOffset = self.originalContentInset.top;
+    CGPoint bottomOrigin = CGPointMake(
+        floor(self.bounds.size.width / 2),
+        self.bounds.size.height - currentBottomPadding - currentBottomRadius + yOffset
+    );
     CGPoint topOrigin = CGPointZero;
-	
+
 	// Set distance of topOrigin for drawing
     if (distance == 0) {
         topOrigin = CGPointMake(floor(self.bounds.size.width / 2), bottomOrigin.y);
@@ -684,10 +697,10 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
 	{
         topOrigin = CGPointMake(
 			floor(self.bounds.size.width / 2),
-			(self.enableDiskDripEffect)
+            (self.enableDiskDripEffect
 				? self.bounds.size.height + offset
-					+ currentTopPadding + currentTopRadius
-				: bottomOrigin.y
+					+ currentTopPadding + currentTopRadius + yOffset
+				: bottomOrigin.y)
 		);
         if (percentage == 0) {
             bottomOrigin.y -= (fabs(verticalShift) - kMaxDistance);
@@ -700,20 +713,34 @@ static inline CGFloat lerp(CGFloat a, CGFloat b, CGFloat p)
     CGPathAddArc(path, NULL, topOrigin.x, topOrigin.y, currentTopRadius, 0, M_PI, YES);
     
     //Left curve
-    CGPoint leftCp1 = CGPointMake(lerp((topOrigin.x - currentTopRadius), (bottomOrigin.x - currentBottomRadius), 0.1), lerp(topOrigin.y, bottomOrigin.y, 0.2));
-    CGPoint leftCp2 = CGPointMake(lerp((topOrigin.x - currentTopRadius), (bottomOrigin.x - currentBottomRadius), 0.9), lerp(topOrigin.y, bottomOrigin.y, 0.2));
-    CGPoint leftDestination = CGPointMake(bottomOrigin.x - currentBottomRadius, bottomOrigin.y);
-    
+    CGPoint leftCp1 = CGPointMake(
+        lerp((topOrigin.x - currentTopRadius), (bottomOrigin.x - currentBottomRadius), 0.1),
+        lerp(topOrigin.y, bottomOrigin.y, 0.2)
+    );
+    CGPoint leftCp2 = CGPointMake(
+        lerp((topOrigin.x - currentTopRadius), (bottomOrigin.x - currentBottomRadius), 0.9),
+        lerp(topOrigin.y, bottomOrigin.y, 0.2)
+    );
+
+    CGPoint leftDestination = CGPointMake(
+        bottomOrigin.x - currentBottomRadius, bottomOrigin.y);
     CGPathAddCurveToPoint(path, NULL, leftCp1.x, leftCp1.y, leftCp2.x, leftCp2.y, leftDestination.x, leftDestination.y);
     
 	// Bottom semicircle
 	CGPathAddArc(path, NULL, bottomOrigin.x, bottomOrigin.y, currentBottomRadius, M_PI, 0, YES);
     
     //Right curve
-    CGPoint rightCp2 = CGPointMake(lerp((topOrigin.x + currentTopRadius), (bottomOrigin.x + currentBottomRadius), 0.1), lerp(topOrigin.y, bottomOrigin.y, 0.2));
-    CGPoint rightCp1 = CGPointMake(lerp((topOrigin.x + currentTopRadius), (bottomOrigin.x + currentBottomRadius), 0.9), lerp(topOrigin.y, bottomOrigin.y, 0.2));
-    CGPoint rightDestination = CGPointMake(topOrigin.x + currentTopRadius, topOrigin.y);
-    
+    CGPoint rightCp2 = CGPointMake(
+        lerp((topOrigin.x + currentTopRadius), (bottomOrigin.x + currentBottomRadius), 0.1),
+        lerp(topOrigin.y, bottomOrigin.y, 0.2)
+    );
+    CGPoint rightCp1 = CGPointMake(
+        lerp((topOrigin.x + currentTopRadius), (bottomOrigin.x + currentBottomRadius), 0.9),
+        lerp(topOrigin.y, bottomOrigin.y, 0.2)
+    );
+
+    CGPoint rightDestination = CGPointMake(
+        topOrigin.x + currentTopRadius, topOrigin.y);
     CGPathAddCurveToPoint(path, NULL, rightCp1.x, rightCp1.y, rightCp2.x, rightCp2.y, rightDestination.x, rightDestination.y);
     CGPathCloseSubpath(path);
     
